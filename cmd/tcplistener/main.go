@@ -2,37 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net"
-	"strings"
+
+	"github.com/IronWill79/http-server/internal/request"
 )
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	ch := make(chan string)
-
-	go func() {
-		buffer := make([]byte, 8)
-		line := ""
-		for {
-			buffer_length, err := f.Read(buffer)
-			if err != nil {
-				if line != "" {
-					ch <- line
-				}
-				close(ch)
-				return
-			}
-			sections := strings.Split(string(buffer[:buffer_length]), "\n")
-			line += sections[0]
-			if len(sections) > 1 {
-				ch <- line
-				line = sections[1]
-			}
-		}
-	}()
-
-	return ch
-}
 
 func main() {
 	listener, err := net.Listen("tcp", ":42069")
@@ -48,11 +21,14 @@ func main() {
 		}
 		fmt.Println("Connection accepted on port 42069")
 
-		line_channel := getLinesChannel(connection)
-
-		for line := range line_channel {
-			fmt.Println(line)
+		req, err := request.RequestFromReader(connection)
+		if err != nil {
+			panic(err)
 		}
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", req.RequestLine.Method)
+		fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
 
 		connection.Close()
 		fmt.Println("Connection closed")
