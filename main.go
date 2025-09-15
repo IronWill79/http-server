@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 const filename = "messages.txt"
@@ -15,11 +16,20 @@ func main() {
 	defer file.Close()
 
 	buffer := make([]byte, 8)
+	line := ""
 	for {
-		_, err := file.Read(buffer)
+		buffer_length, err := file.Read(buffer)
 		if err != nil {
 			break
 		}
-		fmt.Printf("read: %s\n", string(buffer))
+		sections := strings.Split(string(buffer[:buffer_length]), "\n")
+		line += sections[0]
+		if len(sections) > 1 {
+			fmt.Printf("read: %s\n", line)
+			line = sections[1]
+		}
+	}
+	if line != "" {
+		fmt.Printf("read: %s\n", line)
 	}
 }
