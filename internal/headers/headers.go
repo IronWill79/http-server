@@ -7,10 +7,19 @@ import (
 
 const crlf = "\r\n"
 
+const validCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'*+-.^_`|~"
+
 type Headers map[string]string
 
 func NewHeaders() Headers {
 	return Headers{}
+}
+
+func checkForInvalidCharacters(r rune) rune {
+	if !strings.Contains(validCharacters, string(r)) {
+		return -1
+	}
+	return r
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
@@ -21,14 +30,22 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	if headerText[:2] == crlf {
 		return 0, true, nil
 	}
-	header := strings.SplitN(headerText, crlf, 1)[0]
+	header := strings.SplitN(headerText, crlf, 2)[0]
 	trimmed_header := strings.TrimSpace(header)
 	values := strings.SplitN(trimmed_header, ":", 2)
 	key := values[0]
-	value := values[1]
 	if strings.Contains(key, " ") {
 		return 0, false, fmt.Errorf("invalid spacing header: %v", trimmed_header)
 	}
-	h[strings.TrimSpace(key)] = strings.TrimSpace(value)
-	return len(header) - 2, false, nil
+	checked_key := strings.Map(checkForInvalidCharacters, key)
+	if key != checked_key {
+		return 0, false, fmt.Errorf("invalid character in field name: %v", key)
+	}
+	value := values[1]
+	if val, ok := h[strings.ToLower(key)]; ok {
+		h[strings.ToLower(key)] = val + ", " + strings.TrimSpace(value)
+	} else {
+		h[strings.ToLower(key)] = strings.TrimSpace(value)
+	}
+	return len(header) + 2, false, nil
 }
