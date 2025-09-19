@@ -24,11 +24,12 @@ func checkForInvalidCharacters(r rune) rune {
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	headerText := string(data)
-	if !strings.Contains(headerText, crlf) {
+	crlfIndex := strings.Index(headerText, crlf)
+	if crlfIndex == -1 {
 		return 0, false, nil
 	}
-	if headerText[:2] == crlf {
-		return 0, true, nil
+	if crlfIndex == 0 {
+		return 2, true, nil
 	}
 	header := strings.SplitN(headerText, crlf, 2)[0]
 	trimmed_header := strings.TrimSpace(header)
