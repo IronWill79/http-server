@@ -2,11 +2,11 @@ package request
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strings"
+
+	"github.com/IronWill79/http-server/internal/headers"
 )
 
 const bufferSize = 8
@@ -18,84 +18,111 @@ type RequestLine struct {
 	Method        string
 }
 
-type RequestStatus int
+type RequestState int
 
 const (
-	Initialized RequestStatus = iota
-	Done
+	requestStateInitialized RequestState = iota
+	requestStateParsingHeaders
+	requestStateDone
 )
 
-var statusName = map[RequestStatus]string{
-	Initialized: "initialized",
-	Done:        "done",
+var statusName = map[RequestState]string{
+	requestStateInitialized:    "initialized",
+	requestStateParsingHeaders: "parsing-headers",
+	requestStateDone:           "done",
 }
 
-func (rs RequestStatus) String() string {
+func (rs RequestState) String() string {
 	return statusName[rs]
 }
 
 type Request struct {
+	Headers     headers.Headers
 	RequestLine RequestLine
-	Status      RequestStatus
+	state       RequestState
 }
 
-func parseRequestLine(req_line *RequestLine, text string) (int, error) {
+func (r *Request) parseRequestLine(data []byte) (int, error) {
+	text := string(data)
 	if !strings.Contains(text, crlf) {
 		return 0, nil
 	}
-	length := len(text)
+	length := strings.Index(text, crlf) + 2
 	valid_methods := []string{"GET", "POST"}
 	lines := strings.Split(text, crlf)
 	parts := strings.Split(lines[0], " ")
 	if len(parts) != 3 {
 		err := errors.New("invalid request line - not 3 parts")
-		fmt.Fprintf(os.Stderr, "%v: %v\n", err, parts)
 		return length, err
 	}
 	method := parts[0]
 	if method != strings.ToUpper(method) || !slices.Contains(valid_methods, method) {
 		err := errors.New("invalid method")
-		fmt.Fprintf(os.Stderr, "%v: %v\n", err, method)
 		return length, err
 	}
 	target := parts[1]
 	http_line := parts[2]
 	if http_line != "HTTP/1.1" {
 		err := errors.New("invalid HTTP version")
-		fmt.Fprintf(os.Stderr, "%v: %v\n", err, http_line)
 		return length, err
 	}
 	http_version := strings.Split(http_line, "/")[1]
-	req_line.Method = method
-	req_line.RequestTarget = target
-	req_line.HttpVersion = http_version
+	r.RequestLine.Method = method
+	r.RequestLine.RequestTarget = target
+	r.RequestLine.HttpVersion = http_version
 	return length, nil
 }
 
-func (r *Request) parse(data []byte) (int, error) {
-	switch r.Status {
-	case Initialized:
-		length, err := parseRequestLine(&r.RequestLine, string(data))
+func (r *Request) parseSingle(data []byte) (int, error) {
+	switch r.state {
+	case requestStateInitialized:
+		length, err := r.parseRequestLine(data)
 		if err != nil {
-			fmt.Printf("Request.parse: error parsing: %v\n", err)
 			return 0, err
-		} else if length == 0 {
+		}
+		if length == 0 {
 			return 0, nil
 		}
-		r.Status = Done
+		r.state = requestStateParsingHeaders
 		return length, nil
-	case Done:
+	case requestStateParsingHeaders:
+		length, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return 0, err
+		}
+		if length == 0 {
+			return 0, nil
+		}
+		if done {
+			r.state = requestStateDone
+		}
+		return length, nil
+	case requestStateDone:
 		return 0, errors.New("error: trying to read data in a done state")
 	default:
 		return 0, errors.New("error: unknown state")
 	}
 }
 
+func (r *Request) parse(data []byte) (int, error) {
+	totalBytesParsed := 0
+	for r.state != requestStateDone {
+		n, err := r.parseSingle(data[totalBytesParsed:])
+		if err != nil {
+			return 0, err
+		} else if n == 0 {
+			return totalBytesParsed, nil
+		}
+		totalBytesParsed += n
+	}
+	return totalBytesParsed, nil
+}
+
 func RequestFromReader(reader io.Reader) (*Request, error) {
 	buf := make([]byte, bufferSize)
 	readToIndex := 0
-	request := &Request{Status: Initialized}
-	for request.Status != Done {
+	request := &Request{state: requestStateInitialized, Headers: headers.NewHeaders()}
+	for request.state != requestStateDone {
 		if readToIndex == len(buf) {
 			new_buf := make([]byte, len(buf)*2)
 			_ = copy(new_buf, buf)
@@ -107,9 +134,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		if err != nil {
 			if err != io.EOF {
 				return nil, err
-			} else {
-				request.Status = Done
-				break
 			}
 		}
 		readToIndex += numBytesRead
