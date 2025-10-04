@@ -2,8 +2,10 @@ package request
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/IronWill79/http-server/internal/headers"
@@ -23,12 +25,14 @@ type RequestState int
 const (
 	requestStateInitialized RequestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
 var statusName = map[RequestState]string{
 	requestStateInitialized:    "initialized",
 	requestStateParsingHeaders: "parsing-headers",
+	requestStateParsingBody:    "parsing-body",
 	requestStateDone:           "done",
 }
 
@@ -37,6 +41,7 @@ func (rs RequestState) String() string {
 }
 
 type Request struct {
+	Body        []byte
 	Headers     headers.Headers
 	RequestLine RequestLine
 	state       RequestState
@@ -94,9 +99,27 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, nil
 		}
 		if done {
-			r.state = requestStateDone
+			r.state = requestStateParsingBody
 		}
 		return length, nil
+	case requestStateParsingBody:
+		contentLengthString, err := r.Headers.Get("content-length")
+		if err != nil {
+			r.state = requestStateDone
+			return 0, nil
+		}
+		contentLength, err := strconv.Atoi(contentLengthString)
+		if err != nil {
+			return 0, fmt.Errorf("error: content-length not a number %s", contentLengthString)
+		}
+		r.Body = append(r.Body, data...)
+		if len(r.Body) > contentLength {
+			return 0, fmt.Errorf("error: body (%d) longer than content-length (%d)\nBody: `%v`", len(string(r.Body)), contentLength, r.Body)
+		}
+		if len(r.Body) == contentLength {
+			r.state = requestStateDone
+		}
+		return len(data), nil
 	case requestStateDone:
 		return 0, errors.New("error: trying to read data in a done state")
 	default:
@@ -132,14 +155,16 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		// read into the buffer
 		numBytesRead, err := reader.Read(buf[readToIndex:])
 		if err != nil {
-			if err != io.EOF {
-				return nil, err
+			if errors.Is(err, io.EOF) {
+				request.state = requestStateDone
+				break
 			}
+			return nil, err
 		}
 		readToIndex += numBytesRead
 
 		// parse from the buffer
-		numBytesParsed, err := request.parse(buf)
+		numBytesParsed, err := request.parse(buf[:readToIndex])
 		if err != nil {
 			return nil, err
 		}
@@ -149,6 +174,17 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 			buf = new_buf
 			readToIndex -= numBytesParsed
 		}
+	}
+	contentLengthString, err := request.Headers.Get("content-length")
+	if err != nil {
+		return request, nil
+	}
+	contentLength, err := strconv.Atoi(contentLengthString)
+	if err != nil {
+		return nil, fmt.Errorf("error: content-length not a number %s", contentLengthString)
+	}
+	if len(request.Body) < contentLength {
+		return nil, fmt.Errorf("body shorter than content-length")
 	}
 	return request, nil
 }

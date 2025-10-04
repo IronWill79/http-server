@@ -50,3 +50,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 	return len(header) + 2, false, nil
 }
+
+func (h Headers) Get(key string) (val string, err error) {
+	k := strings.ToLower(key)
+	if _, ok := h[k]; !ok {
+		return "", fmt.Errorf("no header key named %s", key)
+	}
+	return h[k], nil
+}
