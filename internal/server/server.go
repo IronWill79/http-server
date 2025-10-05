@@ -23,7 +23,9 @@ func Serve(port int) (*Server, error) {
 		listener: listener,
 	}
 	go func() {
-		s.listen()
+		for !s.closed.Load() {
+			s.listen()
+		}
 	}()
 	return &s, nil
 }
