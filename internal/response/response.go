@@ -17,9 +17,9 @@ const (
 )
 
 var statusCodeName = map[StatusCode]string{
-	statusCodeOK:          "HTTP/1.1 200 OK",
-	statusCodeBadRequest:  "HTTP/1.1 400 Bad Request",
-	statusCodeServerError: "HTTP/1.1 500 Internal Server Error",
+	statusCodeOK:          "HTTP/1.1 200 OK\r\n",
+	statusCodeBadRequest:  "HTTP/1.1 400 Bad Request\r\n",
+	statusCodeServerError: "HTTP/1.1 500 Internal Server Error\r\n",
 }
 
 func (code StatusCode) String() string {
