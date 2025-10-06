@@ -35,30 +35,8 @@ func NewWriter(w io.Writer) *Writer {
 	}
 }
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
-	_, err := w.Write([]byte(statusCode.String()))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
 	_, err := w.writer.Write([]byte(statusCode.String()))
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-	for k, v := range headers {
-		_, err := fmt.Fprintf(w, "%s: %s\r\n", k, v)
-		if err != nil {
-			return err
-		}
-	}
-	_, err := w.Write([]byte("\r\n"))
 	if err != nil {
 		return err
 	}
@@ -79,13 +57,6 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 	return nil
 }
 
-func WriteBody(w io.Writer, body []byte) error {
-	_, err := w.Write(body)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 func (w *Writer) WriteBody(body []byte) (int, error) {
 	bytesWritten, err := w.writer.Write(body)
 	if err != nil {
