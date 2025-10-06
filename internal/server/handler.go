@@ -16,8 +16,9 @@ type HandlerError struct {
 }
 
 func (e *HandlerError) Write(w io.Writer) {
-	response.WriteStatusLine(w, e.Status)
+	writer := response.NewWriter(w)
+	writer.WriteStatusLine(e.Status)
 	h := headers.GetDefaultHeaders(len(e.Message))
-	response.WriteHeaders(w, h)
-	response.WriteBody(w, []byte(e.Message))
+	writer.WriteHeaders(h)
+	writer.WriteBody([]byte(e.Message))
 }
