@@ -22,16 +22,12 @@ func Serve(port int, handler Handler) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := Server{
+	s := &Server{
 		handler:  handler,
 		listener: listener,
 	}
-	go func() {
-		for !s.closed.Load() {
-			s.listen()
-		}
-	}()
-	return &s, nil
+	go s.listen()
+	return s, nil
 }
 
 func (s *Server) Close() error {
@@ -43,14 +39,13 @@ func (s *Server) listen() {
 	for {
 		conn, err := s.listener.Accept()
 		if err != nil {
-			log.Fatal(err)
-		}
-		go func(c net.Conn) {
 			if s.closed.Load() {
 				return
 			}
-			s.handle(c)
-		}(conn)
+			log.Printf("Error accepting connection: %v", err)
+			continue
+		}
+		go s.handle(conn)
 	}
 }
 
