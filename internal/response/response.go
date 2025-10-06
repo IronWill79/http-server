@@ -11,15 +11,15 @@ import (
 type StatusCode int
 
 const (
-	statusCodeOK          StatusCode = 200
-	statusCodeBadRequest  StatusCode = 400
-	statusCodeServerError StatusCode = 500
+	StatusCodeSuccess     StatusCode = 200
+	StatusCodeBadRequest  StatusCode = 400
+	StatusCodeServerError StatusCode = 500
 )
 
 var statusCodeName = map[StatusCode]string{
-	statusCodeOK:          "HTTP/1.1 200 OK\r\n",
-	statusCodeBadRequest:  "HTTP/1.1 400 Bad Request\r\n",
-	statusCodeServerError: "HTTP/1.1 500 Internal Server Error\r\n",
+	StatusCodeSuccess:     "HTTP/1.1 200 OK\r\n",
+	StatusCodeBadRequest:  "HTTP/1.1 400 Bad Request\r\n",
+	StatusCodeServerError: "HTTP/1.1 500 Internal Server Error\r\n",
 }
 
 func (code StatusCode) String() string {
