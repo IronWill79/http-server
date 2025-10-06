@@ -2,6 +2,7 @@ package headers
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -57,4 +58,17 @@ func (h Headers) Get(key string) (val string, err error) {
 		return "", fmt.Errorf("no header key named %s", key)
 	}
 	return h[k], nil
+}
+
+func (h Headers) Set(key string, val string) {
+	k := strings.ToLower(key)
+	h[k] = val
+}
+
+func GetDefaultHeaders(contentLen int) Headers {
+	h := NewHeaders()
+	h["content-length"] = strconv.Itoa(contentLen)
+	h["connection"] = "close"
+	h["content-type"] = "text/plain"
+	return h
 }
