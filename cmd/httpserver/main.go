@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/IronWill79/http-server/internal/request"
+	"github.com/IronWill79/http-server/internal/response"
 	"github.com/IronWill79/http-server/internal/server"
 )
 
@@ -17,12 +18,12 @@ func handler(w io.Writer, req *request.Request) *server.HandlerError {
 	switch req.RequestLine.RequestTarget {
 	case "/yourproblem":
 		return &server.HandlerError{
-			Status:  400,
+			Status:  response.StatusCodeBadRequest,
 			Message: "Your problem is not my problem\n",
 		}
 	case "/myproblem":
 		return &server.HandlerError{
-			Status:  500,
+			Status:  response.StatusCodeServerError,
 			Message: "Woopsie, my bad\n",
 		}
 	default:
