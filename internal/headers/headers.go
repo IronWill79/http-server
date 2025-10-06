@@ -61,8 +61,16 @@ func (h Headers) Get(key string) (val string, err error) {
 }
 
 func (h Headers) Set(key string, val string) {
+	h[key] = val
+}
+
+func (h Headers) Remove(key string) error {
 	k := strings.ToLower(key)
-	h[k] = val
+	if _, ok := h[k]; !ok {
+		return fmt.Errorf("no header key named %s", key)
+	}
+	delete(h, k)
+	return nil
 }
 
 func GetDefaultHeaders(contentLen int) Headers {
