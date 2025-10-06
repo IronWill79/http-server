@@ -65,6 +65,20 @@ func handler(w *response.Writer, req *request.Request) {
 		h.Set("content-type", "text/html")
 		w.WriteHeaders(h)
 		w.WriteBody([]byte(responseServerError))
+	case "/video":
+		video, err := os.ReadFile("./assets/vim.mp4")
+		if err != nil {
+			w.WriteStatusLine(response.StatusCodeBadRequest)
+			h := headers.GetDefaultHeaders(len(responseBadRequest))
+			h.Set("content-type", "text/html")
+			w.WriteHeaders(h)
+			w.WriteBody([]byte(responseBadRequest))
+		}
+		w.WriteStatusLine(response.StatusCodeSuccess)
+		h := headers.NewHeaders()
+		h.Set("Content-Type", "video/mp4")
+		w.WriteHeaders(h)
+		w.WriteBody(video)
 	default:
 		if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin/") {
 			suffix := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
