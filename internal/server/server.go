@@ -53,16 +53,22 @@ func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		log.Fatalf("request parsing failed: %v\n", err)
-	}
-	var writeBuffer bytes.Buffer
-	handlerError := s.handler(&writeBuffer, req)
-	if handlerError != nil {
-		handlerError.Write(conn)
+		hErr := &HandlerError{
+			Status:  response.StatusCodeBadRequest,
+			Message: err.Error(),
+		}
+		hErr.Write(conn)
 		return
 	}
-	h := response.GetDefaultHeaders(writeBuffer.Len())
-	response.WriteStatusLine(conn, 200)
-	response.WriteHeaders(conn, h)
-	response.Write(conn, writeBuffer.Bytes())
+	buf := bytes.NewBuffer([]byte{})
+	hErr := s.handler(buf, req)
+	if hErr != nil {
+		hErr.Write(conn)
+		return
+	}
+	b := buf.Bytes()
+	response.WriteStatusLine(conn, response.StatusCodeSuccess)
+	headers := response.GetDefaultHeaders(len(b))
+	response.WriteHeaders(conn, headers)
+	conn.Write(b)
 }
